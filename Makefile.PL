@@ -6,7 +6,7 @@ requires 'Try::Tiny';
 requires 'JSON';
 requires 'JSON::XS';
 
-requires 'URI::Escape';
+requires 'URI';
 requires 'Furl';
 
 requires 'Test::More';
