@@ -24,7 +24,7 @@ sub new {
         useragent => $opts{useragent} || 'Furl Net::Hadoop::WebHDFS (perl)',
         timeout => $opts{timeout} || 10,
     };
-    $self->{furl} = Furl::HTTP->new(agent => $self->{useragent}, timeout => $self->{timeout});
+    $self->{furl} = Furl::HTTP->new(agent => $self->{useragent}, timeout => $self->{timeout}, max_redirects => 0);
     return bless $self, $this;
 }
 
@@ -281,7 +281,7 @@ sub operate_requests {
     }
     my $uri = URI->new($res->{location});
     $headers = ['Content-Type' => 'application/octet-stream'];
-    return $self->request($uri->{host}, $uri->{port}, $method, $uri->path_query, undef, {}, $payload, $headers);
+    return $self->request($uri->host, $uri->port, $method, $uri->path_query, undef, {}, $payload, $headers);
 }
 
 # IllegalArgumentException      400 Bad Request
