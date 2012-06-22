@@ -257,15 +257,15 @@ sub build_path {
                 %params);
     my $u = URI->new('', 'http');
     $u->query_form(%opts);
-    $path . $u->path_query; # path_query() #=> '?foo=1&bar=2'
+    $self->api_path($path) . $u->path_query; # path_query() #=> '?foo=1&bar=2'
 }
 
 our %REDIRECTED_OPERATIONS = (APPEND => 1, CREATE => 1, OPEN => 1, GETFILECHECKSUM => 1);
 sub operate_requests {
     my ($self, $method, $path, $op, $params, $payload) = @_;
 
+    my $headers = []; # or undef ?
     if ($self->{httpfs_mode} or not $REDIRECTED_OPERATIONS{$op}) {
-        my $headers = []; # or undef ?
         if ($self->{httpfs_mode} and defined($payload) and length($payload) > 0) {
             $headers = ['Content-Type' => 'application/octet-stream'];
         }
@@ -280,7 +280,8 @@ sub operate_requests {
         croak "NameNode returns non-redirection (or without location header), code:$code, body:$body.";
     }
     my $uri = URI->new($res->{location});
-    return $self->request($uri->{host}, $uri->{port}, $method, $uri->path_query, undef, {}, $payload);
+    $headers = ['Content-Type' => 'application/octet-stream'];
+    return $self->request($uri->{host}, $uri->{port}, $method, $uri->path_query, undef, {}, $payload, $headers);
 }
 
 # IllegalArgumentException      400 Bad Request
@@ -299,6 +300,7 @@ sub request {
         port => $port,
         path_query => $request_path,
         headers => $header,
+        ($payload ? (content => $payload) : ()),
     );
 
     my $res = { code => $code, body => $body };
