@@ -11,7 +11,7 @@ use URI;
 
 our $VERSION = "0.1";
 
-our %OPT_TABLE = {};
+our %OPT_TABLE = ();
 
 sub new {
     my ($this, %opts) = @_;
@@ -36,10 +36,10 @@ sub create {
     if ($self->{httpfs_mode}) {
         %options = (%options, data => 'true');
     }
-    my $err = check_options('CREATE', %options);
+    my $err = $self->check_options('CREATE', %options);
     croak $err if $err;
 
-    my $res = operate_requests('PUT', $path, 'CREATE', \%options, $body);
+    my $res = $self->operate_requests('PUT', $path, 'CREATE', \%options, $body);
     $res->{code} == 201;
 }
 $OPT_TABLE{CREATE} = ['overwrite', 'blocksize', 'replication', 'permission', 'buffersize', 'data'];
@@ -50,10 +50,10 @@ sub append {
     if ($self->{httpfs_mode}) {
         %options = (%options, data => 'true');
     }
-    my $err = check_options('APPEND', %options);
+    my $err = $self->check_options('APPEND', %options);
     croak $err if $err;
 
-    my $res = operate_requests('POST', $path, 'APPEND', \%options, $body);
+    my $res = $self->operate_requests('POST', $path, 'APPEND', \%options, $body);
     $res->{code} == 200;
 }
 $OPT_TABLE{APPEND} = ['buffersize', 'data'];
@@ -62,10 +62,10 @@ $OPT_TABLE{APPEND} = ['buffersize', 'data'];
 #                [&offset=<LONG>][&length=<LONG>][&buffersize=<INT>]"
 sub read {
     my ($self, $path, %options) = @_;
-    my $err = check_options('OPEN', %options);
+    my $err = $self->check_options('OPEN', %options);
     croak $err if $err;
 
-    my $res = operate_requests('GET', $path, 'OPEN', \%options);
+    my $res = $self->operate_requests('GET', $path, 'OPEN', \%options);
     $res->{body};
 }
 $OPT_TABLE{OPEN} = ['offset', 'length', 'buffersize'];
@@ -74,7 +74,7 @@ sub open { (shift)->read(@_); }
 # curl -i -X PUT "http://<HOST>:<PORT>/<PATH>?op=MKDIRS[&permission=<OCTAL>]"
 sub mkdir {
     my ($self, $path, %options) = @_;
-    my $err = check_options('MKDIRS', %options);
+    my $err = $self->check_options('MKDIRS', %options);
     croak $err if $err;
 
     my $res = $self->operate_requests('PUT', $path, 'MKDIRS', \%options);
@@ -86,7 +86,7 @@ sub mkdirs { (shift)->mkdir(@_); }
 # curl -i -X PUT "<HOST>:<PORT>/webhdfs/v1/<PATH>?op=RENAME&destination=<PATH>"
 sub rename {
     my ($self, $path, $dest, %options) = @_;
-    my $err = check_options('RENAME', %options);
+    my $err = $self->check_options('RENAME', %options);
     croak $err if $err;
 
     unless ($dest =~ m!^/!) {
@@ -100,10 +100,10 @@ sub rename {
 #                          [&recursive=<true|false>]"
 sub delete {
     my ($self, $path, %options) = @_;
-    my $err = check_options('DELETE', %options);
+    my $err = $self->check_options('DELETE', %options);
     croak $err if $err;
 
-    my $res = operate_requests('DELETE', $path, 'DELETE', \%options);
+    my $res = $self->operate_requests('DELETE', $path, 'DELETE', \%options);
     $self->check_success_json($res, 'boolean');
 }
 $OPT_TABLE{DELETE} = ['recursive'];
@@ -111,10 +111,10 @@ $OPT_TABLE{DELETE} = ['recursive'];
 # curl -i  "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=GETFILESTATUS"
 sub stat {
     my ($self, $path, %options) = @_;
-    my $err = check_options('GETFILESTATUS', %options);
+    my $err = $self->check_options('GETFILESTATUS', %options);
     croak $err if $err;
 
-    my $res = operate_requests('GET', $path, 'GETFILESTATUS', \%options);
+    my $res = $self->operate_requests('GET', $path, 'GETFILESTATUS', \%options);
     $self->check_success_json($res, 'FileStatus');
 }
 sub getfilestatus { (shift)->stat(@_); }
@@ -122,10 +122,10 @@ sub getfilestatus { (shift)->stat(@_); }
 # curl -i  "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=LISTSTATUS"
 sub list {
     my ($self, $path, %options) = @_;
-    my $err = check_options('LISTSTATUS', %options);
+    my $err = $self->check_options('LISTSTATUS', %options);
     croak $err if $err;
 
-    my $res = operate_requests('GET', $path, 'LISTSTATUS', \%options);
+    my $res = $self->operate_requests('GET', $path, 'LISTSTATUS', \%options);
     $self->check_success_json($res, 'FileStatuses')->{FileStatus};
 }
 sub liststatus { (shift)->list(@_); }
@@ -133,10 +133,10 @@ sub liststatus { (shift)->list(@_); }
 # curl -i "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=GETCONTENTSUMMARY"
 sub content_summary {
     my ($self, $path, %options) = @_;
-    my $err = check_options('GETCONTENTSUMMARY', %options);
+    my $err = $self->check_options('GETCONTENTSUMMARY', %options);
     croak $err if $err;
 
-    my $res = operate_requests('GET', $path, 'GETCONTENTSUMMARY', \%options);
+    my $res = $self->operate_requests('GET', $path, 'GETCONTENTSUMMARY', \%options);
     $self->check_success_json($res, 'ContentSummary');
 }
 sub getcontentsummary { (shift)->content_summary(@_); }
@@ -144,10 +144,10 @@ sub getcontentsummary { (shift)->content_summary(@_); }
 # curl -i "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=GETFILECHECKSUM"
 sub checksum {
     my ($self, $path, %options) = @_;
-    my $err = check_options('GETFILECHECKSUM', %options);
+    my $err = $self->check_options('GETFILECHECKSUM', %options);
     croak $err if $err;
 
-    my $res = operate_requests('GET', $path, 'GETFILECHECKSUM', \%options);
+    my $res = $self->operate_requests('GET', $path, 'GETFILECHECKSUM', \%options);
     $self->check_success_json($res, 'FileChecksum');
 }
 sub getfilechecksum { (shift)->checksum(@_); }
@@ -155,10 +155,10 @@ sub getfilechecksum { (shift)->checksum(@_); }
 # curl -i "http://<HOST>:<PORT>/webhdfs/v1/?op=GETHOMEDIRECTORY"
 sub homedir {
     my ($self, %options) = @_;
-    my $err = check_options('GETHOMEDIRECTORY', %options);
+    my $err = $self->check_options('GETHOMEDIRECTORY', %options);
     croak $err if $err;
 
-    my $res = operate_requests('GET', '/', 'GETHOMEDIRECTORY', \%options);
+    my $res = $self->operate_requests('GET', '/', 'GETHOMEDIRECTORY', \%options);
     $self->check_success_json($res, 'Path');
 }
 sub gethomedirectory { (shift)->homedir(@_); }
@@ -167,10 +167,10 @@ sub gethomedirectory { (shift)->homedir(@_); }
 #                 [&permission=<OCTAL>]"
 sub chmod {
     my ($self, $path, $mode, %options) = @_;
-    my $err = check_options('SETPERMISSION', %options);
+    my $err = $self->check_options('SETPERMISSION', %options);
     croak $err if $err;
 
-    my $res = operate_requests('PUT', $path, 'SETPERMISSION', {%options, permission => $mode});
+    my $res = $self->operate_requests('PUT', $path, 'SETPERMISSION', {%options, permission => $mode});
     $res->{code} == 200;
 }
 sub setpermission { (shift)->chmod(@_); }
@@ -179,14 +179,14 @@ sub setpermission { (shift)->chmod(@_); }
 #                          [&owner=<USER>][&group=<GROUP>]"
 sub chown {
     my ($self, $path, %options) = @_;
-    my $err = check_options('SETOWNER', %options);
+    my $err = $self->check_options('SETOWNER', %options);
     croak $err if $err;
 
     unless (defined($options{owner}) or defined($options{group})) {
         croak "'chown' needs at least one of owner or group";
     }
 
-    my $res = operate_requests('PUT', $path, 'SETOWNER', \%options);
+    my $res = $self->operate_requests('PUT', $path, 'SETOWNER', \%options);
     $res->{code} == 200;
 }
 $OPT_TABLE{SETOWNER} = ['owner', 'group'];
@@ -196,10 +196,10 @@ sub setowner { (shift)->chown(@_); }
 #                           [&replication=<SHORT>]"
 sub replication {
     my ($self, $path, $replnum, %options) = @_;
-    my $err = check_options('SETREPLICATION', %options);
+    my $err = $self->check_options('SETREPLICATION', %options);
     croak $err if $err;
 
-    my $res = operate_requests('PUT', $path, 'SETREPLICATION', {%options, replication => $replnum});
+    my $res = $self->operate_requests('PUT', $path, 'SETREPLICATION', {%options, replication => $replnum});
     $self->check_success_json($res, 'boolean');
 }
 sub setreplication { (shift)->replication(@_); }
@@ -210,14 +210,14 @@ sub setreplication { (shift)->replication(@_); }
 # accesstime: radix-10 long integer
 sub touch {
     my ($self, $path, %options) = @_;
-    my $err = check_options('SETTIMES', %options);
+    my $err = $self->check_options('SETTIMES', %options);
     croak $err if $err;
 
     unless (defined($options{modificationtime}) or defined($options{accesstime})) {
         croak "'touch' needs at least one of modificationtime or accesstime";
     }
 
-    my $res = operate_requests('PUT', $path, 'SETTIMES', \%options);
+    my $res = $self->operate_requests('PUT', $path, 'SETTIMES', \%options);
     $res->{code} == 200;
 }
 sub settimes { (shift)->touch(@_); }
@@ -229,9 +229,9 @@ sub settimes { (shift)->touch(@_); }
 sub check_options {
     my ($self, $op, %opts) = @_;
     my @ex = ();
-    my @opts = @{( $OPT_TABLE{$op} || [] )};
+    my $opts = $OPT_TABLE{$op} || [];
     foreach my $k (keys %opts) {
-        push @ex, $k if scalar(grep {$k eq $_} @opts) < 1;
+        push @ex, $k if scalar(grep {$k eq $_} @$opts) < 1;
     }
     return undef unless @ex;
     'no such option: ' . join(' ', @ex);
