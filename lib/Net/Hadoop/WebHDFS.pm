@@ -9,7 +9,7 @@ use JSON::XS qw//;
 use Furl;
 use URI;
 
-our $VERSION = "0.1";
+our $VERSION = "0.2";
 
 our %OPT_TABLE = ();
 
