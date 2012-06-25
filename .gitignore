@@ -6,4 +6,5 @@ Makefile
 MyMETA*
 META*
 inc/
+Net-Hadoop-WebHDFS-*.tar.gz
 *~
