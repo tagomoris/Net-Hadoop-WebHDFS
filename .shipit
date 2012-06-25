@@ -5,3 +5,6 @@ steps = FindVersion, ChangeVersion, CheckChangeLog, DistTest, Commit, Tag, MakeD
 # svn.tagpattern = http://code.example.com/svn/tags/MyProj-%v
 
 # CheckChangeLog.files = ChangeLog, MyProj.CHANGES
+git.tagpattern = %v
+git.push_to = origin
+
