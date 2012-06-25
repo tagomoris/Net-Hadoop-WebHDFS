@@ -10,11 +10,11 @@ requires 'URI';
 requires 'Furl';
 
 requires 'Test::More';
-# requires 'Test::Deep';
-# requires 'Test::MockTime';
+requires 'Test::Deep';
 
 tests 't/*.t';
 test_requires 'Test::More';
+test_requires 'Test::Deep';
 
 auto_set_repository;
 
