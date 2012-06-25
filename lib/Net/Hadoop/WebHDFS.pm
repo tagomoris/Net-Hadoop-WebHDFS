@@ -329,3 +329,162 @@ sub request {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Net::Hadoop::WebHDFS - Client library for Hadoop WebHDFS and HttpFs
+
+=head1 SYNOPSIS
+
+  use Net::Hadoop::WebHDFS;
+  my $client = Net::Hadoop::WebHDFS->new( host => 'hostname.local', port => 50070 );
+
+  my $statusArrayRef = $client->list('/');
+
+  my $contentData = $client->read('/data.txt');
+
+  $client->create('/foo/bar/data.bin', $bindata);
+
+=head1 DESCRIPTION
+
+This module supports WebHDFS v1 on Hadoop 1.x (and CDH4.0.0 or later), and HttpFs on Hadoop 2.x (and CDH4 or later).
+WebHDFS/HttpFs has two authentication methods: pseudo authentication and Kerberos, but this module supports pseudo authentication only.
+
+=head1 METHODS
+
+Net::Hadoop::WebHDFS class method and instance methods.
+
+=head2 CLASS METHODS
+
+=head3 C<< Net::Hadoop::WebHDFS->new( %args ) :Net::Hadoop::WebHDFS >>
+
+Creates and returns a new client instance with I<%args>.
+If you are using HttpFs, set I<httpfs_mode => 1> and I<port => 14000>.
+
+
+I<%args> might be:
+
+=over
+
+=item host :Str = "namenode.local"
+
+=item port :Int = 50070
+
+=item username :Str = "hadoop"
+
+=item doas :Str = "hdfs"
+
+=item httpfs_mode :Bool = 0/1
+
+=back
+
+=head2 INSTANCE METHODS
+
+=head3 C<< $client->create($path, $body, %options) :Bool >>
+
+Creates file on HDFS with I<$body> data. If you want to create blank file, pass blank string.
+
+I<%options> might be:
+
+=over
+
+=item overwrite :Str = "true" or "false"
+
+=item blocksize :Int
+
+=item replication :Int
+
+=item permission :Str = "0600"
+
+=item buffersize :Int
+
+=back
+
+=head3 C<< $client->append($path, $body, %options) :Bool >>
+
+Append I<$body> data to I<$path> file.
+
+I<%options> might be:
+
+=over
+
+=item buffersize :Int
+
+=back
+
+=head3 C<< $client->read($path, %options) :Str >>
+
+Open file of I<$path> and returns its content. Alias: B<open>.
+
+I<%options> might be:
+
+=over
+
+=item offset :Int
+
+=item length :Int
+
+=item buffersize :Int
+
+=back
+
+=head3 C<< $client->mkdir($path, [permission => '0644']) :Bool >>
+
+Make directory I<$path> on HDFS. Alias: B<mkdirs>.
+
+=head3 C<< $client->rename($path, $dest) :Bool >>
+
+Rename file or directory as I<$dest>.
+
+=head3 C<< $client->delete($path, [recursive => 0/1]) :Bool >>
+
+Delete file I<$path> from HDFS. With optional I<recursive => 1>, files and directories are removed recursively (default false).
+
+=head3 C<< $client->stat($path) :HashRef >>
+
+Get and returns file status object for I<$path>. Alias: B<getfilestatus>.
+
+=head3 C<< $client->list($path) :ArrayRef >>
+
+Get list of files in directory I<$path>, and returns these status objects arrayref. Alias: B<liststatus>.
+
+=head3 C<< $client->content_summary($path) :HashRef >>
+
+Get 'content summary' object and returns it. Alias: B<getcontentsummary>.
+
+=head3 C<< $client->checksum($path) :HashRef >>
+
+Get checksum information object for I<$path>. Alias: B<getfilechecksum>.
+
+=head3 C<< $client->homedir() :Str >>
+
+Get accessing user's home directory path. Alias: B<gethomedirectory>.
+
+=head3 C<< $client->chmod($path, $mode) :Bool >>
+
+Set permission of I<$path> as octal I<$mode>. Alias: B<setpermission>.
+
+=head3 C<< $client->chown($path, [owner => 'username', group => 'groupname']) :Bool >>
+
+Set owner or group of I<$path>. One of owner/group must be specified. Alias: B<setowner>.
+
+=head3 C<< $client->replication($path, $replnum) :Bool >>
+
+Set replica number for I<$path>. Alias: B<setreplication>.
+
+=head3 C<< $client->touch($path, [modificationtime => $mtime, accesstime => $atime]) :Bool >>
+
+Set mtime/atime of I<$path>. Alias: B<settimes>.
+
+=head1 AUTHOR
+
+TAGOMORI Satoshi E<lt>tagomoris {at} gmail.comE<gt>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
