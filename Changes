@@ -1,5 +1,8 @@
 Revision history for Perl module Net::Hadoop::WebHDFS
 
+0.3  Mon Oct 22 12:34:22 JST 2012
+   - update bundled Module::Install to 1.06
+
 0.2  Mon Jun 25 22:15:44 JST 2012
    - shrink distribution
 
