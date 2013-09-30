@@ -2,7 +2,7 @@ Revision history for Perl extension Net-Hadoop-WebHDFS
 
 {{$NEXT}}
 
-0.4 2013-09-30T06:34:15Z
+0.4 2013-09-30T06:37:07Z
 
    - new dist with Minilla
 
