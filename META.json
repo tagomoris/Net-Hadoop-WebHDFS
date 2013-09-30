@@ -1,0 +1,79 @@
+{
+   "abstract" : "Client library for Hadoop WebHDFS and HttpFs",
+   "author" : [
+      "TAGOMORI Satoshi <tagomoris {at} gmail.com>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Minilla/v0.6.6, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Net-Hadoop-WebHDFS",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "xt",
+         "inc",
+         "share",
+         "eg",
+         "examples",
+         "author"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.36",
+            "Test::Deep" : "0",
+            "Test::More" : "0"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "CPAN::Meta" : "0",
+            "CPAN::Meta::Prereqs" : "0",
+            "ExtUtils::MakeMaker" : "0",
+            "Module::Build" : "0.38"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Test::CPAN::Meta" : "0",
+            "Test::MinimumVersion" : "0.10108",
+            "Test::Pod" : "1.41",
+            "Test::Spellunker" : "v0.2.7"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Furl" : "0",
+            "JSON" : "0",
+            "JSON::XS" : "0",
+            "Test::Deep" : "0",
+            "Test::More" : "0",
+            "Try::Tiny" : "0",
+            "URI" : "0"
+         }
+      }
+   },
+   "release_status" : "unstable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/tagomoris/Net-Hadoop-WebHDFS/issues"
+      },
+      "homepage" : "https://github.com/tagomoris/Net-Hadoop-WebHDFS",
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/tagomoris/Net-Hadoop-WebHDFS.git",
+         "web" : "https://github.com/tagomoris/Net-Hadoop-WebHDFS"
+      }
+   },
+   "version" : "0.4",
+   "x_contributors" : [
+      "TAGOMORI Satoshi <tagomoris@gmail.com>"
+   ]
+}

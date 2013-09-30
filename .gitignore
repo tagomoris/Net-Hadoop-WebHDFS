@@ -4,7 +4,7 @@ pm_to_blib
 MANIFEST
 Makefile
 MyMETA*
-META*
 inc/
+.build/
 Net-Hadoop-WebHDFS-*.tar.gz
 *~
