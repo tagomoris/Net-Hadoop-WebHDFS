@@ -35,6 +35,8 @@ _%args_ might be:
 
 - host :Str = "namenode.local"
 - port :Int = 50070
+- standby\_host :Str = "standby.namenode.local"
+- standby\_port :Int = 50070
 - username :Str = "hadoop"
 - doas :Str = "hdfs"
 - httpfs\_mode :Bool = 0/1
