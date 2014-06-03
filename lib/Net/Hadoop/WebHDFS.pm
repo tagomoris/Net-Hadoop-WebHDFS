@@ -275,15 +275,15 @@ our %REDIRECTED_OPERATIONS = (APPEND => 1, CREATE => 1, OPEN => 1, GETFILECHECKS
 sub operate_requests {
     my ($self, $method, $path, $op, $params, $payload) = @_;
 
+    my ($host, $port) = $self->connect_to();
+
     my $headers = []; # or undef ?
     if ($self->{httpfs_mode} or not $REDIRECTED_OPERATIONS{$op}) {
         if ($self->{httpfs_mode} and defined($payload) and length($payload) > 0) {
             $headers = ['Content-Type' => 'application/octet-stream'];
         }
-        return $self->request($self->{host}, $self->{port}, $method, $path, $op, $params, $payload, $headers);
+        return $self->request($host, $port, $method, $path, $op, $params, $payload, $headers);
     }
-
-    my ($host, $port) = $self->connect_to();
 
     # pattern for not httpfs and redirected by namenode
     my $res = $self->request($host, $port, $method, $path, $op, $params, undef);
