@@ -18,11 +18,14 @@ sub new {
     my $self = +{
         host => $opts{host} || 'localhost',
         port => $opts{port} || 50070,
+        standby_host => $opts{standby_host},
+        standby_port => ($opts{standby_port} || $opts{port} || 50070),
         httpfs_mode => $opts{httpfs_mode} || 0,
         username => $opts{username},
         doas => $opts{doas},
         useragent => $opts{useragent} || 'Furl Net::Hadoop::WebHDFS (perl)',
         timeout => $opts{timeout} || 10,
+        under_failover => 0,
     };
     $self->{furl} = Furl::HTTP->new(agent => $self->{useragent}, timeout => $self->{timeout}, max_redirects => 0);
     return bless $self, $this;
@@ -260,6 +263,14 @@ sub build_path {
     $self->api_path($path) . $u->path_query; # path_query() #=> '?foo=1&bar=2'
 }
 
+sub connect_to {
+    my $self = shift;
+    if ($self->{under_failover}) {
+        return ($self->{standby_host}, $self->{standby_port});
+    }
+    return ($self->{host}, $self->{port});
+}
+
 our %REDIRECTED_OPERATIONS = (APPEND => 1, CREATE => 1, OPEN => 1, GETFILECHECKSUM => 1);
 sub operate_requests {
     my ($self, $method, $path, $op, $params, $payload) = @_;
@@ -272,8 +283,10 @@ sub operate_requests {
         return $self->request($self->{host}, $self->{port}, $method, $path, $op, $params, $payload, $headers);
     }
 
+    my ($host, $port) = $self->connect_to();
+
     # pattern for not httpfs and redirected by namenode
-    my $res = $self->request($self->{host}, $self->{port}, $method, $path, $op, $params, undef);
+    my $res = $self->request($host, $port, $method, $path, $op, $params, undef);
     unless ($res->{code} >= 300 and $res->{code} <= 399 and $res->{location}) {
         my $code = $res->{code};
         my $body = $res->{body};
@@ -321,7 +334,20 @@ sub request {
 
     if ($code == 400) { croak "ClientError: $errmsg"; }
     elsif ($code == 401) { croak "SecurityError: $errmsg"; }
-    elsif ($code == 403) { croak "IOError: $errmsg"; }
+    elsif ($code == 403) {
+        if ($errmsg =~ /org\.apache\.hadoop\.ipc\.StandbyException/) {
+            if ($self->{under_failover}) {
+                $self->{under_failover} = 0;
+                return $self->request($self->{host}, $self->{port}, $method, $path, $op, $params, $payload, $header);
+            } elsif ($self->{httpfs_mode} || not defined($self->{standby_host})) {
+                # do nothing -> croak
+            } else {
+                $self->{under_failover} = 1;
+                return $self->request($self->{standby_host}, $self->{standby_port}, $method, $path, $op, $params, $payload, $header);
+            }
+        }
+        croak "IOError: $errmsg";
+    }
     elsif ($code == 404) { croak "FileNotFoundError: $errmsg"; }
     elsif ($code == 500) { croak "ServerError: $errmsg"; }
 
