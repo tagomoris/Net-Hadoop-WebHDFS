@@ -9,7 +9,7 @@ use JSON::XS qw//;
 use Furl;
 use URI;
 
-our $VERSION = "0.4";
+our $VERSION = "0.5";
 
 our %OPT_TABLE = ();
 
@@ -336,14 +336,18 @@ sub request {
     elsif ($code == 401) { croak "SecurityError: $errmsg"; }
     elsif ($code == 403) {
         if ($errmsg =~ /org\.apache\.hadoop\.ipc\.StandbyException/) {
-            if ($self->{under_failover}) {
-                $self->{under_failover} = 0;
-                return $self->request($self->{host}, $self->{port}, $method, $path, $op, $params, $payload, $header);
-            } elsif ($self->{httpfs_mode} || not defined($self->{standby_host})) {
-                # do nothing -> croak
+            if ($self->{httpfs_mode} || not defined($self->{standby_host})) {
+                # failover is disabled
+            } elsif ($self->{retrying}) {
+                # more failover is prohibited
+                $self->{retrying} = 0;
             } else {
-                $self->{under_failover} = 1;
-                return $self->request($self->{standby_host}, $self->{standby_port}, $method, $path, $op, $params, $payload, $header);
+                $self->{under_failover} = not $self->{under_failover};
+                $self->{retrying} = 1;
+                my ($next_host, $next_port) = $self->connect_to();
+                my $val = $self->request($next_host, $next_port, $method, $path, $op, $params, $payload, $header);
+                $self->{retrying} = 0;
+                return $val;
             }
         }
         croak "IOError: $errmsg";
@@ -397,6 +401,10 @@ I<%args> might be:
 =item host :Str = "namenode.local"
 
 =item port :Int = 50070
+
+=item standby_host :Str = "standby.namenode.local"
+
+=item standby_port :Int = 50070
 
 =item username :Str = "hadoop"
 
