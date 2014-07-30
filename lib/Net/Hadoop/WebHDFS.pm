@@ -224,6 +224,12 @@ sub touch {
     my $res = $self->operate_requests('PUT', $path, 'SETTIMES', \%options);
     $res->{code} == 200;
 }
+
+sub touchz {
+    my ($self, $path) = @_;
+    return $self->create( $path, '', overwrite => 'true' );
+}
+
 sub settimes { (shift)->touch(@_); }
 
 # sub delegation_token {}
@@ -280,7 +286,8 @@ sub operate_requests {
 
     my $headers = []; # or undef ?
     if ($self->{httpfs_mode} or not $REDIRECTED_OPERATIONS{$op}) {
-        if ($self->{httpfs_mode} and defined($payload) and length($payload) > 0) {
+        # empty files are ok
+        if ($self->{httpfs_mode} and defined($payload)) {
             $headers = ['Content-Type' => 'application/octet-stream'];
         }
         return $self->request($host, $port, $method, $path, $op, $params, $payload, $headers);
@@ -512,6 +519,10 @@ Set replica number for I<$path>. Alias: B<setreplication>.
 =head3 C<< $client->touch($path, [modificationtime => $mtime, accesstime => $atime]) :Bool >>
 
 Set mtime/atime of I<$path>. Alias: B<settimes>.
+
+=head3 C<< $client->touchz($path) :Bool >>
+
+Create a zero length file.
 
 =head1 AUTHOR
 
