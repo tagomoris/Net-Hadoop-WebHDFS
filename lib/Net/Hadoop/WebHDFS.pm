@@ -209,7 +209,7 @@ sub setreplication { (shift)->replication(@_); }
 
 # curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=SETTIMES
 #                           [&modificationtime=<TIME>][&accesstime=<TIME>]"
-# motificationtime: radix-10 long integer
+# modificationtime: radix-10 long integer
 # accesstime: radix-10 long integer
 $OPT_TABLE{SETTIMES} = [ qw( modificationtime accesstime ) ];
 sub touch {
