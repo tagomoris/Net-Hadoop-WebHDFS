@@ -2,6 +2,10 @@ Revision history for Perl extension Net-Hadoop-WebHDFS
 
 {{$NEXT}}
 
+0.6 2014-08-20T02:59:00Z
+
+   - Add 'touchz' method
+
 0.5 2014-06-03T10:05:18Z
 
    - support Namenode HA

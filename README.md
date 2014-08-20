@@ -121,6 +121,10 @@ Set replica number for _$path_. Alias: __setreplication__.
 
 Set mtime/atime of _$path_. Alias: __settimes__.
 
+### `$client->touchz($path) :Bool`
+
+Create a zero length file.
+
 # AUTHOR
 
 TAGOMORI Satoshi <tagomoris {at} gmail.com>

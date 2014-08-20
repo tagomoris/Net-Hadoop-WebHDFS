@@ -72,8 +72,9 @@
          "web" : "https://github.com/tagomoris/Net-Hadoop-WebHDFS"
       }
    },
-   "version" : "0.5",
+   "version" : "0.6",
    "x_contributors" : [
+      "Burak Gursoy <burak@cpan.org>",
       "TAGOMORI Satoshi <tagomoris@gmail.com>"
    ]
 }
