@@ -399,7 +399,7 @@ Net::Hadoop::WebHDFS class method and instance methods.
 =head3 C<< Net::Hadoop::WebHDFS->new( %args ) :Net::Hadoop::WebHDFS >>
 
 Creates and returns a new client instance with I<%args>.
-If you are using HttpFs, set I<httpfs_mode => 1> and I<port => 14000>.
+If you are using HttpFs, set I<< httpfs_mode => 1 >> and I<< port => 14000 >>.
 
 
 I<%args> might be:
@@ -482,7 +482,7 @@ Rename file or directory as I<$dest>.
 
 =head3 C<< $client->delete($path, [recursive => 0/1]) :Bool >>
 
-Delete file I<$path> from HDFS. With optional I<recursive => 1>, files and directories are removed recursively (default false).
+Delete file I<$path> from HDFS. With optional I<< recursive => 1 >>, files and directories are removed recursively (default false).
 
 =head3 C<< $client->stat($path) :HashRef >>
 
