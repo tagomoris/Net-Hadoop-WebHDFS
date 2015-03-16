@@ -8,3 +8,5 @@ inc/
 .build/
 Net-Hadoop-WebHDFS-*.tar.gz
 *~
+cpanfile.snapshot
+local/
