@@ -8,6 +8,7 @@ use JSON::XS qw//;
 
 use Furl;
 use URI;
+use Try::Tiny;
 
 our $VERSION = "0.6";
 
@@ -25,6 +26,8 @@ sub new {
         doas => $opts{doas},
         useragent => $opts{useragent} || 'Furl Net::Hadoop::WebHDFS (perl)',
         timeout => $opts{timeout} || 10,
+        suppress_errors => $opts{suppress_errors} || 0,
+        last_error => undef,
         under_failover => 0,
     };
     $self->{furl} = Furl::HTTP->new(agent => $self->{useragent}, timeout => $self->{timeout}, max_redirects => 0);
@@ -305,13 +308,25 @@ sub operate_requests {
     return $self->request($uri->host, $uri->port, $method, $uri->path_query, undef, {}, $payload, $headers);
 }
 
+sub request {
+    my $self = shift;
+    return $self->_request(@_) unless $self->{suppress_errors};
+
+    try {
+        $self->_request(@_);
+    } catch {
+        $self->{last_error} = $_;
+        0;
+    };
+}
+
 # IllegalArgumentException      400 Bad Request
 # UnsupportedOperationException 400 Bad Request
 # SecurityException             401 Unauthorized
 # IOException                   403 Forbidden
 # FileNotFoundException         404 Not Found
 # RumtimeException              500 Internal Server Error
-sub request {
+sub _request {
     my ($self, $host, $port, $method, $path, $op, $params, $payload, $header) = @_;
 
     my $request_path = $op ? $self->build_path($path, $op, %$params) : $path;
