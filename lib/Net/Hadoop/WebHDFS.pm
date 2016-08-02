@@ -7,6 +7,7 @@ use Carp;
 use JSON::XS qw//;
 
 use Furl;
+use File::Spec;
 use URI;
 use Try::Tiny;
 
@@ -381,6 +382,93 @@ sub _request {
     croak "RequestFailedError, code:$code, message:$errmsg";
 }
 
+sub exists {
+    my $self = shift;
+    my $path = shift || croak "No HDFS path was specified";
+    my $stat;
+    eval {
+        $stat = $self->stat( $path );
+        1;
+    } or do {
+        my $eval_error = $@ || 'Zombie error';
+        return if $eval_error =~ m<
+            \QFileNotFoundError: {"RemoteException":{"message":"File does not exist:\E
+        >xms;
+        # just re-throw
+        croak $eval_error;
+    };
+    return $stat;
+}
+
+sub find {
+    my $self      = shift;
+    my $file_path = shift || croak "No file path specified";
+    my $cb        = shift;
+    my $opt       = @_ && ref $_[-1] eq 'HASH' ? pop @_ : {};
+
+    if ( ref $cb ne 'CODE' ) {
+        die "Call back needs to be a CODE ref";
+    }
+
+    my $suppress = $self->{suppress_errors};
+    # can be used to quickly skip the java junk like, file names starting with
+    # underscores, etc.
+    my $re_ignore     = $opt->{re_ignore} ? qr/$opt->{re_ignore}/ : undef;
+
+    #
+    # No such thing like symlinks (yet) in HDFS, in case you're wondering:
+    # https://issues.apache.org/jira/browse/HADOOP-10019
+    # although check that link yourself
+    #
+    my $looper;
+    $looper = sub {
+        my $thing = shift;
+        if ( ! $self->exists( $thing ) ) {
+            # should happen at the start, so this will short-circuit the recursion
+            warn "The HDFS directory specified ($thing) does not exist! Please guard your HDFS paths with exists()";
+            return;
+        }
+        my $list = $self->list( $thing );
+        foreach my $e ( @{ $list } ) {
+            my $path = $e->{pathSuffix};
+            my $type = $e->{type};
+
+            next if $re_ignore && $path && $path =~ $re_ignore;
+
+            if ( $type eq 'DIRECTORY' ) {
+                $cb->( $thing, $e );
+                eval {
+                    $looper->( File::Spec->catdir( $thing, $path ) );
+                    1;
+                } or do {
+                    my $eval_error = $@ || 'Zombie error';
+                    if ( $suppress ) {
+                        warn "[ERROR DOWNGRADED] Failed to check $thing/$path: $eval_error";
+                        next;
+                    }
+                    croak $eval_error;
+                }
+            }
+            elsif ( $type eq 'FILE' ) {
+                $cb->( $thing, $e );
+            }
+            else {
+                my $msg = "I don't know what to do with type=$type!";
+                if ( $suppress ) {
+                    warn "[ERROR DOWNGRADED] $msg";
+                    next;
+                }
+                croak $msg;
+            }
+        }
+        return;
+    };
+
+    $looper->( $file_path );
+
+    return;
+}
+
 1;
 
 __END__
@@ -538,6 +626,37 @@ Set mtime/atime of I<$path>. Alias: B<settimes>.
 =head3 C<< $client->touchz($path) :Bool >>
 
 Create a zero length file.
+
+=head2 EXTENSIONS
+
+=head3 C<< $client->exists($path) :Bool >>
+
+Returns the C<< stat() >> hash if successful, and false otherwise. Dies on
+interface errors.
+
+=head3 C<< $client->find($path, $callback, $options_hash) >>
+
+Loops recursively over the specified path:
+
+    $client->find(
+        '/user',
+        sub {
+            my($cwd, $path) = @_;
+            my $date = localtime $path->{modificationTime};
+            my $type = $path->{type} eq q{DIRECTORY} ? "[dir ]" : "[file]";
+            my $size = sprintf "% 10s",
+                                $path->{blockSize}
+                                    ? sprintf "%.2f MB", $path->{blockSize} / 1024**2
+                                    : 0;
+            print "$type $size $path->{permission} $path->{owner}:$path->{group} $cwd/$path->{pathSuffix}\n";
+        },
+        { # optional
+            re_ignore => qr{
+                            \A      # Filter some filenames out even before reaching the callback
+                                [_] # logs and meta data, java junk, _SUCCESS files, etc.
+                        }xms,
+        }
+    );
 
 =head1 AUTHOR
 
