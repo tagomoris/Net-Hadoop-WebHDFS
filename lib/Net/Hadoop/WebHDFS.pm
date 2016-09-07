@@ -11,7 +11,7 @@ use File::Spec;
 use URI;
 use Try::Tiny;
 
-our $VERSION = "0.6";
+our $VERSION = "0.7";
 
 our %OPT_TABLE = ();
 

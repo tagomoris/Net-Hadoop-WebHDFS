@@ -2,6 +2,10 @@ Revision history for Perl extension Net-Hadoop-WebHDFS
 
 {{$NEXT}}
 
+0.7 2016-09-07T15:07:03Z
+
+   - New extension methods: exists() & find()
+
 0.6 2014-08-20T02:59:00Z
 
    - Add 'touchz' method
