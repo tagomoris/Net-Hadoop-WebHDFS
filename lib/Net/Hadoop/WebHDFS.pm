@@ -1047,7 +1047,7 @@ value then a simple hash will be returned.
 It is also possible to fetch a subset of the attributes if you specify the
 names of them with the C<<names>> option.
 
-=head4 C<< $client->xattr( $path, 'list' ) :List>>
+=head4 C<< $client->xattr( $path, 'list' ) :List >>
 
 This method will return the names of all the attributes set on C<<$path>>.
 
