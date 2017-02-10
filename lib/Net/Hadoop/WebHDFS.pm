@@ -13,7 +13,7 @@ use Try::Tiny;
 
 use constant GENERIC_FS_ACTION_WITH_NO_PATH => '';
 
-our $VERSION = "0.7";
+our $VERSION = "0.8";
 
 our %OPT_TABLE = ();
 

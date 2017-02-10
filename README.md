@@ -123,6 +123,121 @@ Set mtime/atime of _$path_. Alias: **settimes**.
 
 Create a zero length file.
 
+### `$client->checkaccess( $path, $fsaction ) :Bool`
+
+Test if the user has the rights to do a file system action.
+
+### `$client->concat( $path, @source_paths ) :Bool`
+
+Concatenate paths.
+
+### `$client->truncate( $path, $newlength ) :Bool`
+
+Truncate a path contents.
+
+### `$client->delegation_token( $action, $path, @args )`
+
+This is a method wrapping the multiple methods for delegation token
+handling.
+
+    my $token = $client->delegation_token( get => $path );
+    print "Token: $token\n";
+
+    my $milisec = $client->delegation_token( renew => $token );
+    printf "Token expiration renewed until %s\n", scalar localtime $milisec / 1000;
+
+    if ( $client->delegation_token( cancel => $token ) ) {
+        print "Token cancelled. There will be a new one created.\n";
+        my $token_new = $client->delegation_token( get => $path );
+        print "New token: $token_new\n";
+        printf "New token is %s\n", $token_new eq $token ? 'the same' : 'different';
+    }
+    else {
+        warn "Failed to cancel token $token!";
+    }
+
+#### `$client->delegation_token( get => $path, [renewer => $username, service => $service, kind => $kind ] ) :Str )`
+
+Returns the delegation token id for the specified path.
+
+#### `$client->delegation_token( renew => $token ) :Int`
+
+Returns the new expiration time for the specified delegation token in miliseconds.
+
+#### `$client->delegation_token( cancel => $token ) :Bool`
+
+Cancels the specified delegation token (which will force a new one to be created.
+
+### `$client->snapshot( $path, $action => @args )`
+
+This is a method wrapping the multiple methods for snapshot handling.
+
+#### `$client->snapshot( $path, create => [, $snapshotname ] ) :Str`
+
+Creates a new snaphot on the specified path and returns the name of the
+snapshot.
+
+#### `$client->snapshot( $path, rename => $oldsnapshotname, $snapshotname ) :Bool`
+
+Renames the snaphot.
+
+#### `$client->snapshot( $path, delete => $snapshotname ) :Bool`
+
+Deletes the specified snapshot.
+
+### `$client->xattr( $path, $action, @args )`
+
+This is a method wrapping the multiple methods for extended attributes handling.
+
+    my @attr_names = $client->xattr( $path, 'list' );
+
+    my %attr = $client->xattr( $path, get => flatten => 1 );
+
+    if ( ! exists $attr{'user.bar'} ) {
+        warn "set user.bar = 42\n";
+        $client->xattr( $path, create => 'user.bar' => 42 )
+            || warn "Failed to create user.bar";
+    }
+    else {
+        warn "alter user.bar = 24\n";
+        $client->xattr( $path, replace => 'user.bar' => 24 )
+            || warn "Failed to replace user.bar";
+        ;
+    }
+
+    if ( exists $attr{'user.foo'} ) {
+        warn "No more foo\n";
+        $client->xattr( $path, remove => 'user.foo')
+            || warn "Failed to remove user.foo";
+        ;
+    }
+
+#### `$client->xattr( $path, get => [, names => \@attr_names]  [, flatten => 1 ] [, encoding => $enc ] ) :Struct`
+
+Returns the extended attribute key/value pairs on a path. The default data set
+is an array of hashrefs with the pairs, however if you set `<flatten`> to a true
+value then a simple hash will be returned.
+
+It is also possible to fetch a subset of the attributes if you specify the
+names of them with the `<names`> option.
+
+#### `$client->xattr( $path, 'list' ) :List`
+
+This method will return the names of all the attributes set on `<$path`>.
+
+#### `$client->xattr( $path, create => $attr_name => $value ) :Bool`
+
+It is possible to create a new  extended attribute on a path with this method.
+
+#### `$client->xattr( $path, replace => $attr_name => $value ) :Bool`
+
+It is possible to replace the value of an existing extended attribute on a path
+with this method.
+
+#### `$client->xattr( $path, remove => $attr_name ) :Bool`
+
+Deletes the speficied attribute on `<$path`>.
+
 ## EXTENSIONS
 
 ### `$client->exists($path) :Bool`
