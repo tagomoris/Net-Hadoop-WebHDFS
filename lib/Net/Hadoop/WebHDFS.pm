@@ -11,6 +11,8 @@ use File::Spec;
 use URI;
 use Try::Tiny;
 
+use constant GENERIC_FS_ACTION_WITH_NO_PATH => '';
+
 our $VERSION = "0.7";
 
 our %OPT_TABLE = ();
@@ -51,7 +53,8 @@ sub create {
 }
 $OPT_TABLE{CREATE} = ['overwrite', 'blocksize', 'replication', 'permission', 'buffersize', 'data'];
 
-# curl -i -X POST "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=APPEND[&buffersize=<INT>]"
+# curl -i -X POST "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=APPEND
+#                       [&buffersize=<INT>]"
 sub append {
     my ($self, $path, $body, %options) = @_;
     if ($self->{httpfs_mode}) {
@@ -78,7 +81,8 @@ sub read {
 $OPT_TABLE{OPEN} = ['offset', 'length', 'buffersize'];
 sub open { (shift)->read(@_); }
 
-# curl -i -X PUT "http://<HOST>:<PORT>/<PATH>?op=MKDIRS[&permission=<OCTAL>]"
+# curl -i -X PUT "http://<HOST>:<PORT>/<PATH>?op=MKDIRS
+#                   [&permission=<OCTAL>]"
 sub mkdir {
     my ($self, $path, %options) = @_;
     my $err = $self->check_options('MKDIRS', %options);
@@ -90,7 +94,8 @@ sub mkdir {
 $OPT_TABLE{MKDIRS} = ['permission'];
 sub mkdirs { (shift)->mkdir(@_); }
 
-# curl -i -X PUT "<HOST>:<PORT>/webhdfs/v1/<PATH>?op=RENAME&destination=<PATH>"
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=RENAME
+#                   &destination=<PATH>"
 sub rename {
     my ($self, $path, $dest, %options) = @_;
     my $err = $self->check_options('RENAME', %options);
@@ -228,6 +233,323 @@ sub touch {
     my $res = $self->operate_requests('PUT', $path, 'SETTIMES', \%options);
     $res->{code} == 200;
 }
+
+#---------------------------- EXTENDED ATTRIBUTES START -----------------------#
+
+sub xattr {
+    my($self, $path, $action, @args) = @_;
+    croak "No action defined for xattr" if ! $action;
+    my $target  = sprintf '_%s_xattr', $action;
+    my $target2 = sprintf '_%s_xattrs', $action;
+    my $method  = $self->can( $target )
+                    || $self->can( $target2 )
+                    || croak "invalid action `$action`";
+    $self->$method( $path, @args );
+}
+
+# curl -i "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=GETXATTRS
+#                           &xattr.name=<XATTRNAME>&encoding=<ENCODING>"
+#
+# curl -i "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=GETXATTRS
+#                           &xattr.name=<XATTRNAME1>&xattr.name=<XATTRNAME2>&encoding=<ENCODING>"
+$OPT_TABLE{GETXATTRS} = [qw( names encoding flatten )];
+sub _get_xattrs {
+    my($self, $path, %options) = @_;
+    my $err = $self->check_options('GETXATTRS', %options);
+    croak $err if $err;
+
+    my $flatten = delete $options{flatten};
+
+    # limit to a subset? will return all of the attributes otherwise
+    if ( my $name = delete $options{names} ) {
+        croak "getxattrs: name needs to be an arrayref" if ref $name ne 'ARRAY';
+        $options{'xattr.name'} = $name;
+    }
+
+    my $res = $self->operate_requests('GET', $path, 'GETXATTRS', \%options);
+    if ( my $rv = $self->check_success_json($res, 'XAttrs') ) {
+        croak "Unexpected return value from listxattrs: $rv"
+            if ref $rv ne 'ARRAY';
+        return $rv if ! $flatten;
+        map { @{ $_ }{qw/ name value /} } @{ $rv };
+    }
+}
+
+# curl -i "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=LISTXATTRS"
+sub _list_xattrs  {
+    my($self, $path) = @_;
+
+    my $res = $self->operate_requests('GET', $path, 'LISTXATTRS');
+    if ( my $rv = $self->check_success_json($res, 'XAttrNames') ) {
+        my $attr = JSON::XS::decode_json $rv;
+        croak "Unexpected return value from listxattrs: $attr"
+            if ref $attr ne 'ARRAY';
+        return @{ $attr };
+    }
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=SETXATTR
+#                           &xattr.name=<XATTRNAME>&xattr.value=<XATTRVALUE>&flag=<FLAG>"
+# https://blog.cloudera.com/blog/2014/06/why-extended-attributes-are-coming-to-hdfs/
+# flag: [CREATE,REPLACE]
+$OPT_TABLE{SETXATTR} = [qw( name value flag )];
+sub _set_xattr {
+    my($self, $path, %options) = @_;
+    my $err = $self->check_options('SETXATTR', %options);
+    croak $err if $err;
+
+    croak "value of xattr not set" if ! exists $options{value};
+
+    $options{ 'xattr.name' }  = delete $options{name}  || croak "name of xattr not set";
+    $options{ 'xattr.value' } = delete $options{value};
+
+    croak 'flag was not specified.' if ! $options{flag};
+
+    my $res = $self->operate_requests( PUT => $path, 'SETXATTR', \%options);
+    $res->{code} == 200;
+}
+
+sub _create_xattr {
+    my($self, $path, $name, $value) = @_;
+    $self->_set_xattr(
+        $path,
+        name  => $name,
+        value => $value,
+        flag  => 'CREATE',
+    );
+}
+
+sub _replace_xattr {
+    my($self, $path, $name, $value) = @_;
+    $self->_set_xattr(
+        $path,
+        name  => $name,
+        value => $value,
+        flag  => 'REPLACE',
+    );
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=REMOVEXATTR
+#                           &xattr.name=<XATTRNAME>"
+sub _remove_xattr {
+    my($self, $path, $name) = @_;
+
+    my %options;
+    $options{'xattr.name'} =  $name || croak "xattr name was not specified";
+
+    my $res = $self->operate_requests( PUT => $path, 'REMOVEXATTR', \%options);
+    $res->{code} == 200;
+}
+
+#---------------------------- EXTENDED ATTRIBUTES END -------------------------#
+
+# curl -i "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=CHECKACCESS
+#                           &fsaction=<FSACTION>
+# this seems to be broken in some versions. You may get a "No enum constant ..."
+# error if this is the case.
+# Also see https://issues.apache.org/jira/browse/HDFS-9695
+#
+sub checkaccess  {
+    my($self, $path, $fsaction, %options) = @_;
+    croak "checkaccess: fsaction parameter was not specified" if ! $fsaction;
+    my $err = $self->check_options('CHECKACCESS', %options);
+    croak $err if $err;
+
+    $options{fsaction} = $fsaction;
+
+    my $res = $self->operate_requests('GET', $path, 'CHECKACCESS', \%options);
+    $res->{code} == 200;
+}
+
+# curl -i -X POST "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=CONCAT
+#                           &sources=<PATHS>"
+sub concat  {
+    my($self, $path, @sources) = @_;
+
+    croak "At least one source path needs to be specified" if ! @sources;
+
+    my $paths = join q{,}, @sources;
+
+    my $res = $self->operate_requests(
+                    POST => $path,
+                    'CONCAT',
+                    { sources => $paths },
+                );
+    $res->{code} == 200;
+}
+
+# curl -i -X POST "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=TRUNCATE
+#                           &newlength=<LONG>"
+# Available after Hadoop v2.7
+# https://issues.apache.org/jira/browse/HDFS-7655
+#
+sub truncate {
+    my($self, $path, $newlength) = @_;
+    $newlength = 0 if ! defined $newlength;
+
+    my $res = $self->operate_requests(
+                    POST => $path,
+                    'TRUNCATE',
+                    { newlength => $newlength },
+                );
+
+    if ( my $rv = $self->check_success_json($res, 'boolean') ) {
+        $rv eq 'true';
+    }
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=CREATESYMLINK
+#                           &destination=<PATH>[&createParent=<true |false>]"
+# currently broken/disabled
+# https://issues.apache.org/jira/browse/HADOOP-10019
+
+#$OPT_TABLE{CREATESYMLINK} = [qw( destination createParent )];
+#sub createsymlink {
+#    # Not available yet
+#    # https://issues.apache.org/jira/browse/HADOOP-10019
+#    my($self, $path, $destination, $createParent) = @_;
+#
+#    croak "createsymlink: destination not specified" if ! $destination;
+#
+#    my %options = (
+#        destination  => $destination,
+#        ($createParent ? (
+#        createParent => $createParent ? 'true' : 'false',
+#        ) : ())
+#    );
+#
+#    my $res = $self->operate_requests( PUT => $path, 'CREATESYMLINK', \%options);
+#    $res->{code} == 200;
+#}
+
+#---------------------------- DELEGATION TOKEN START --------------------------#
+# Also see
+# http://hadoop.apache.org/docs/r2.6.0/hadoop-hdfs-httpfs/httpfs-default.html
+
+# GETDELEGATIONTOKENS: Obsolete and removed after HDFS-10200, HDFS-3667
+#
+
+sub delegation_token {
+    my($self, $action, @args) = @_;
+    croak "No action defined for delegation_token" if ! $action;
+    my $target = sprintf '_%s_delegation_token', $action;
+    croak "invalid action $action" if ! $self->can( $target );
+    $self->$target( @args );
+}
+
+# curl -i "http://<HOST>:<PORT>/webhdfs/v1/?op=GETDELEGATIONTOKEN
+#                           &renewer=<USER>&service=<SERVICE>&kind=<KIND>"
+# kind: The kind of the delegation token requested
+#       <empty> (Server sets the default kind for the service)
+#       A string that represents token kind e.g "HDFS_DELEGATION_TOKEN" or "WEBHDFS delegation"
+# service: The name of the service where the token is supposed to be used, e.g. ip:port of the namenode
+#
+$OPT_TABLE{GETDELEGATIONTOKEN} = [qw( renewer service kind )];
+sub _get_delegation_token  {
+    my($self, $path, %options) = @_;
+    my $err = $self->check_options('GETDELEGATIONTOKEN', %options);
+    croak $err if $err;
+
+    $options{renewer} ||= $self->{username} if $self->{username};
+
+    my $res = $self->operate_requests( GET => $path, 'GETDELEGATIONTOKEN', \%options);
+
+    if ( my $rv = $self->check_success_json($res, 'Token') ) {
+        $rv->{urlString};
+    }
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/?op=RENEWDELEGATIONTOKEN
+#                           &token=<TOKEN>"
+sub _renew_delegation_token {
+    my($self, $token) = @_;
+
+    croak "No token was specified" if ! $token;
+
+    my $res = $self->operate_requests(
+                    PUT => GENERIC_FS_ACTION_WITH_NO_PATH,
+                    'RENEWDELEGATIONTOKEN',
+                    { token => $token },
+                );
+    if ( my $rv = $self->check_success_json($res, 'long') ) {
+        $rv; # new expiration time in miliseconds
+    }
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/?op=CANCELDELEGATIONTOKEN
+#                           &token=<TOKEN>"
+sub _cancel_delegation_token {
+    my($self, $token) = @_;
+
+    croak "No token was specified" if ! $token;
+
+    my $res = $self->operate_requests(
+                    PUT => GENERIC_FS_ACTION_WITH_NO_PATH,
+                    'CANCELDELEGATIONTOKEN',
+                    { token => $token },
+                );
+    $res->{code} == 200;
+}
+
+#---------------------------- DELEGATION TOKEN END ----------------------------#
+
+#---------------------------- SNAPSHOT START ----------------------------------#
+
+# Needs testing, seems to be buggy and can be destructive in earlier versions
+# i.e.: https://issues.apache.org/jira/browse/HDFS-9406
+#
+# Snaphotting is not enabled by default and this needs to be executed as a super user:
+# hdfs dfsadmin -allowSnapshot $path
+#
+sub snapshot {
+    my($self, $path, $action, @args) = @_;
+    croak "No action defined for delegation_token" if ! $action;
+    my $target = sprintf '_%s_snapshot', $action;
+    croak sprintf "%s: invalid action $action", (caller 0)[3] if ! $self->can( $target );
+    $self->$target( $path => @args );
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=CREATESNAPSHOT
+#                           [&snapshotname=<SNAPSHOTNAME>]"
+sub _create_snapshot {
+    my($self, $path, $snapshotname) = @_;
+
+    my %options;
+    $options{snapshotname} = $snapshotname if $snapshotname;
+    my $res = $self->operate_requests('PUT', $path, 'CREATESNAPSHOT', \%options);
+    if ( my $rv = $self->check_success_json($res, 'Path') ) {
+        $rv;
+    }
+}
+
+# curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=RENAMESNAPSHOT
+#                           &oldsnapshotname=<SNAPSHOTNAME>&snapshotname=<SNAPSHOTNAME>"
+sub _rename_snapshot {
+    my($self, $path, $oldsnapshotname, $snapshotname) = @_;
+
+    my %options = (
+        oldsnapshotname => $oldsnapshotname,
+        snapshotname    => $snapshotname,
+    );
+
+    my $res = $self->operate_requests('PUT', $path, 'RENAMESNAPSHOT', \%options);
+    $res->{code} == 200;
+}
+
+# curl -i -X DELETE "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=DELETESNAPSHOT
+#                           &snapshotname=<SNAPSHOTNAME>"
+sub _delete_snapshot {
+    my($self, $path, $snapshotname) = @_;
+    croak "No snapshotname specified" if ! $snapshotname;
+
+    my %options = (
+        snapshotname => $snapshotname,
+    );
+    my $res = $self->operate_requests('DELETE', $path, 'DELETESNAPSHOT', \%options);
+    $res->{code} == 200;
+}
+
+#---------------------------- SNAPSHOT END ------------------------------------#
 
 sub touchz {
     my ($self, $path) = @_;
@@ -626,6 +948,121 @@ Set mtime/atime of I<$path>. Alias: B<settimes>.
 =head3 C<< $client->touchz($path) :Bool >>
 
 Create a zero length file.
+
+=head3 C<< $client->checkaccess( $path, $fsaction ) :Bool >>
+
+Test if the user has the rights to do a file system action.
+
+=head3 C<< $client->concat( $path, @source_paths ) :Bool >>
+
+Concatenate paths.
+
+=head3 C<< $client->truncate( $path, $newlength ) :Bool >>
+
+Truncate a path contents.
+
+=head3 C<< $client->delegation_token( $action, $path, @args ) >>
+
+This is a method wrapping the multiple methods for delegation token
+handling.
+
+    my $token = $client->delegation_token( get => $path );
+    print "Token: $token\n";
+
+    my $milisec = $client->delegation_token( renew => $token );
+    printf "Token expiration renewed until %s\n", scalar localtime $milisec / 1000;
+
+    if ( $client->delegation_token( cancel => $token ) ) {
+        print "Token cancelled. There will be a new one created.\n";
+        my $token_new = $client->delegation_token( get => $path );
+        print "New token: $token_new\n";
+        printf "New token is %s\n", $token_new eq $token ? 'the same' : 'different';
+    }
+    else {
+        warn "Failed to cancel token $token!";
+    }
+
+=head4 C<< $client->delegation_token( get => $path, [renewer => $username, service => $service, kind => $kind ] ) :Str ) >>
+
+Returns the delegation token id for the specified path.
+
+=head4 C<< $client->delegation_token( renew => $token ) :Int >>
+
+Returns the new expiration time for the specified delegation token in miliseconds.
+
+=head4 C<< $client->delegation_token( cancel => $token ) :Bool >>
+
+Cancels the specified delegation token (which will force a new one to be created.
+
+=head3 C<< $client->snapshot( $path, $action => @args ) >>
+
+This is a method wrapping the multiple methods for snapshot handling.
+
+=head4 C<< $client->snapshot( $path, create => [, $snapshotname ] ) :Str >>
+
+Creates a new snaphot on the specified path and returns the name of the
+snapshot.
+
+=head4 C<< $client->snapshot( $path, rename => $oldsnapshotname, $snapshotname ) :Bool >>
+
+Renames the snaphot.
+
+=head4 C<< $client->snapshot( $path, delete => $snapshotname ) :Bool >>
+
+Deletes the specified snapshot.
+
+=head3 C<< $client->xattr( $path, $action, @args ) >>
+
+This is a method wrapping the multiple methods for extended attributes handling.
+
+    my @attr_names = $client->xattr( $path, 'list' );
+
+    my %attr = $client->xattr( $path, get => flatten => 1 );
+
+    if ( ! exists $attr{'user.bar'} ) {
+        warn "set user.bar = 42\n";
+        $client->xattr( $path, create => 'user.bar' => 42 )
+            || warn "Failed to create user.bar";
+    }
+    else {
+        warn "alter user.bar = 24\n";
+        $client->xattr( $path, replace => 'user.bar' => 24 )
+            || warn "Failed to replace user.bar";
+        ;
+    }
+
+    if ( exists $attr{'user.foo'} ) {
+        warn "No more foo\n";
+        $client->xattr( $path, remove => 'user.foo')
+            || warn "Failed to remove user.foo";
+        ;
+    }
+
+=head4 C<< $client->xattr( $path, get => [, names => \@attr_names]  [, flatten => 1 ] [, encoding => $enc ] ) :Struct >>
+
+Returns the extended attribute key/value pairs on a path. The default data set
+is an array of hashrefs with the pairs, however if you set C<<flatten>> to a true
+value then a simple hash will be returned.
+
+It is also possible to fetch a subset of the attributes if you specify the
+names of them with the C<<names>> option.
+
+=head4 C<< $client->xattr( $path, 'list' ) :List>>
+
+This method will return the names of all the attributes set on C<<$path>>.
+
+=head4 C<< $client->xattr( $path, create => $attr_name => $value ) :Bool >>
+
+It is possible to create a new  extended attribute on a path with this method.
+
+=head4 C<< $client->xattr( $path, replace => $attr_name => $value ) :Bool >>
+
+It is possible to replace the value of an existing extended attribute on a path
+with this method.
+
+=head4 C<< $client->xattr( $path, remove => $attr_name ) :Bool >>
+
+Deletes the speficied attribute on C<<$path>>.
 
 =head2 EXTENSIONS
 
