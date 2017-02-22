@@ -1089,8 +1089,8 @@ Loops recursively over the specified path:
         },
         { # optional
             re_ignore => qr{
-                            \A      # Filter some filenames out even before reaching the callback
-                                [_] # logs and meta data, java junk, _SUCCESS files, etc.
+                            \A       # Filter some filenames out even before reaching the callback
+                                [_.] # logs and meta data, java junk, _SUCCESS files, etc.
                         }xms,
         }
     );
